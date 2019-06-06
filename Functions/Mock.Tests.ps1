@@ -2351,19 +2351,52 @@ Describe 'RemoveParameterValidation' {
                 [Parameter()]
                 [ValidateRange(1, 10)]
                 [int]
-                $Count
+                $Count,
+                [Parameter(ValueFromPipeline)]
+                [ValidateNotNullOrEmpty()]
+                [object[]]
+                $ReferenceObject,
+                [Parameter()]
+                [AllowNull()]
+                [psobject]
+                $Param,
+                [Parameter()]
+                [ValidateNotNull()]
+                [ValidateScript({$null -ne $_})]
+                [Version]
+                $AnotherParam
             )
             $Count
         }
     }
 
-    It 'throws when number is not in the valid range' {
-        { Test-Validation -Count -1 } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+    Context 'ValidateRange' {
+        It 'throws when number is not in the valid range' {
+            { Test-Validation -Count -1 } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+        }
+
+        It 'passes when mock removes the validation' {
+            Mock Test-Validation -RemoveParameterValidation Count { "mock" }
+
+            Test-Validation -Count -1 | Should -Be "mock"
+        }
     }
 
-    It 'passes when mock removes the validation' {
-        Mock Test-Validation -RemoveParameterValidation Count { "mock" }
+    Context 'ValidateNotNullOrEmpty' {
+        It 'throws when ReferenceObject is null or empty' {
+            { Test-Validation -ReferenceObject $null } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+            { Test-Validation -ReferenceObject @() } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+            { Test-Validation -ReferenceObject '' } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+            { $null | Test-Validation } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+            { '' | Test-Validation } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+            { @() | Test-Validation } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+        }
 
-        Test-Validation -Count -1 | Should -Be "mock"
+        It 'removes ValidateNotNull from Mock' {
+            Mock Test-Validation -RemoveParameterValidation ReferenceObject { }
+
+            { $null | Test-Validation } | Should -Not -Throw
+        }
+
     }
 }
