@@ -2348,7 +2348,7 @@ Describe 'RemoveParameterValidation' {
     BeforeAll {
         function Test-Validation {
             param(
-                [Parameter()]
+                [Parameter(Mandatory)]
                 [ValidateRange(1, 10)]
                 [int]
                 $Count,
@@ -2383,19 +2383,33 @@ Describe 'RemoveParameterValidation' {
     }
 
     Context 'ValidateNotNullOrEmpty' {
-        It 'throws when ReferenceObject is null or empty' {
-            { Test-Validation -ReferenceObject $null } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
-            { Test-Validation -ReferenceObject @() } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
-            { Test-Validation -ReferenceObject '' } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
-            { $null | Test-Validation } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
-            { '' | Test-Validation } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
-            { @() | Test-Validation } | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+        BeforeAll {
+            $testCases = @(
+                @{ Name = 'parameter ReferenceObject is null'; Block = { Test-Validation -ReferenceObject $null } }
+                @{ Name = 'parameter ReferenceObject is an empty array'; Block = { Test-Validation -ReferenceObject @() } }
+                @{ Name = 'parameter ReferenceObject is empty string'; Block = { Test-Validation -ReferenceObject '' } }
+                @{ Name = 'receiving $null from pipeline'; Block = { $null | Test-Validation } }
+                @{ Name = 'receiving empty array from pipeline'; Block = { @() | Test-Validation } }
+                @{ Name = 'receiving empty string from pipeline'; Block = { '' | Test-Validation } }
+            )
         }
 
-        It 'removes ValidateNotNull from Mock' {
-            Mock Test-Validation -RemoveParameterValidation ReferenceObject { }
+        It 'throws when <Name>' -TestCases $testCases {
+            param ($Name, $Block)
 
-            { $null | Test-Validation } | Should -Not -Throw
+            $Block | Should -Throw -ErrorId 'ParameterArgumentValidationError'
+        }
+
+        Context 'mocking Test-Validation' {
+            BeforeAll {
+                Mock Test-Validation -RemoveParameterValidation ReferenceObject { }
+            }
+
+            It 'does not throw when <Name>' -TestCases $testCases {
+                param ($Name, $Block)
+
+                $Block | Should -Not -Throw
+            }
         }
 
     }
